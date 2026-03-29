@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<style>
+  		* { margin: 0; padding: 0; box-sizing: border-box; }
+
+			body {
+				width: {{width}}px;
+				height: {{height}}px;
+				font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				align-items: center;
+				padding: 80px;
+				color: #1a1a1a;
+				background: {{bg_color}};
+			}
+
+			.card-number {
+				font-size: 18px;
+				font-weight: 500;
+				color: {{accent_color}};
+				letter-spacing: 2px;
+				margin-bottom: 32px;
+			}
+
+			.title {
+				font-size: {{title_size}}px;
+				font-weight: 700;
+				line-height: 1.3;
+				text-align: center;
+				margin-bottom: 40px;
+				color: #1a1a1a;
+				word-break: keep-all;
+			}
+
+			.body {
+				font-size: {{body_size}}px;
+				font-weight: 400;
+				line-height: 1.8;
+				text-align: center;
+				color: #444;
+				margin-bottom: 48px;
+				white-space: pre-line;
+				word-break: keep-all;
+			}
+
+			.highlight {
+				font-size: 22px;
+				font-weight: 600;
+				color: {{accent_color}};
+				padding: 16px 32px;
+				border: 2px solid {{accent_color}};
+				border-radius: 40px;
+			}
+
+			/* hook 타입: 큰 제목, 배경 강조 */
+			body.hook {
+				background: {{accent_color}};
+				color: #fff;
+			}
+			body.hook .title { color: #fff; font-size: 48px; }
+			body.hook .body { color: rgba(255,255,255,0.85); }
+			body.hook .highlight {
+				color: #fff;
+				border-color: rgba(255,255,255,0.6);
+			}
+			body.hook .card-number { color: rgba(255,255,255,0.7); }
+
+			/* cta 타입: 액션 유도 */
+			body.cta .highlight {
+				background: {{accent_color}};
+				color: #fff;
+				border: none;
+				font-size: 24px;
+				padding: 20px 48px;
+			}
+		</style>
+	</head>
+	<body class="{{card_type}}">
+		<div class="card-number">{{card_number}} / {{total_cards}}</div>
+		<div class="title">{{title}}</div>
+		<div class="body">{{body}}</div>
+		<div class="highlight">{{highlight}}</div>
+	</body>
+</html>
