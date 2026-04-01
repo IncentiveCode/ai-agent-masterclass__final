@@ -1,4 +1,3 @@
-# test_render.py
 from my_nodes.render_to_jpg import render_to_jpg
 
 test_state = {

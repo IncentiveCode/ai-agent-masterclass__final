@@ -2,6 +2,9 @@ from config import get_sheets_client
 from state import State
 
 def fetch_from_sheets(state: State):
+	if state.get("original_text"):
+		return {}
+
 	sheet = get_sheets_client()
 	records = sheet.get_all_records()
 

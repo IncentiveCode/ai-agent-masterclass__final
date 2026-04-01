@@ -89,5 +89,10 @@ def run_pipeline():
 		print(f"\n아직 진행 중: {final_state.next}")
 
 
+def get_graph():
+	app.get_graph().draw_mermaid_png(output_file_path="./output/graph.png")
+
+
 if __name__ == "__main__":
-    run_pipeline()
+  run_pipeline()
+	# get_graph()

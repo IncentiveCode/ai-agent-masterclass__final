@@ -78,5 +78,6 @@ def render_to_jpg(state: State):
 			print(f"[render] 카드 {card.get('card_number')} 저장 : {filepath}")
 		
 		browser.close()
+		p.stop()
 	
 	return {"output_paths": output_paths}
