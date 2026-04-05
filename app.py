@@ -12,6 +12,7 @@ st.set_page_config(
 	layout="wide",
 )
 
+
 # ----- ----- -----
 # 세션 상태 초기화
 # ----- ----- -----
@@ -21,11 +22,21 @@ if "pipeline_status" not in st.session_state:
     st.session_state.pipeline_status = None
 if "interrupt_data" not in st.session_state:
     st.session_state.interrupt_data = None
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 
 
 # ----- ----- -----
 # functions
 # ----- ----- -----
+def add_chat(role: str, content: str, msg_type: str = "text"):
+	st.session_state.chat_history.append({
+		"role": role,
+		"content": content,
+		"type": msg_type,
+	})
+
+
 def get_config():
 	return {"configurable": {"thread_id": st.session_state.thread_id}}
 
@@ -45,44 +56,107 @@ def extract_interrupt_data():
 	return state.next, interrupt_data
 
 
-def run_pipeline():
-	st.session_state.thread_id = f"post-{int(time.time())}"
+def record_interrupt_response(data):
+	if not isinstance(data, dict):
+		return 
 
-	try:
-		app.invoke({"original_text": ""}, get_config())
+	if data.get("type") == "blog_review":
+		proofread = data.get("proofread_text", "")
+		self_review = data.get("self_review", {})
+		score = self_review.get("score", "-")
+		feedback = self_review.get("feedback", "")
+
+		add_chat(
+			"assistant",
+			f"교정이 완료되었습니다. (자동 평가: {score}점)\n\n"
+			f"{feedback}\n\n"
+			f"---\n\n"
+			f"{proofread}"
+		)
+
+	elif data.get("type") == "cards_review":
+		cards = data.get("cards", [])
+
+		# cards_text = "\n".join(
+		#	f"**카드 {card.get('card_number')}** ({card.get('type', '')}): {card.get('title', '')}"
+		#	for card in cards
+		# )
+
+		add_chat(
+			"assistant", 
+			cards,
+			msg_type="cards"
+		)
+
+
+def run_pipeline(text: str):
+	st.session_state.thread_id = f"post-{int(time.time())}"
+	st.session_state.chat_history = []
+
+	add_chat("human", text)
+
+	try:	
+		app.invoke(
+			{
+				"original_text": draft,
+				"type": st.session_state.get("selected_type", "blog"),
+				"platform": st.session_state.get("selected_platform", "blog"),
+				"tone": st.session_state.get("selected_tone", "technical"),
+				"title": text[:30],
+				"row_id": st.session_state.thread_id,
+				"chat_input": True,
+			},
+			get_config()
+		)
 
 		next_node, interrupt_data = extract_interrupt_data()
 
 		if next_node:
 			st.session_state.pipeline_status = "waiting"
 			st.session_state.interrupt_data = interrupt_data
+			record_interrupt_response(interrupt_data)
 		else:
 			st.session_state.pipeline_status = "done"
+			add_chat("assistant", "파이프라인이 완료되었습니다.")
 
-	except ValueError as e:
-		st.session_state.pipeline_status = "empty"
-		st.session_state.interrupt_data = str(e)
 	except Exception as e:
 		st.session_state.pipeline_status = "error"
 		st.session_state.interrupt_data = str(e)
+		add_chat(
+			"assistant", 
+			f"(Exception) 오류가 발생했습니다.\n\n{str(e)}"
+		)
 
 
 def resume_pipeline(response: str):
 	try:
 		app.invoke(Command(resume=response), get_config())
-
 		next_node, interrupt_data = extract_interrupt_data()
 
 		if next_node:
 			st.session_state.pipeline_status = "waiting"
 			st.session_state.interrupt_data = interrupt_data
+			record_interrupt_response(interrupt_data)
 		else:
 			st.session_state.pipeline_status = "done"
 			st.session_state.interrupt_data = None
 
+			state = app.get_state(get_config())
+			values = state.values
+
+			output_paths = values.get("output_paths", [])
+			if output_paths:
+				add_chat("assistant", output_paths, msg_type="images")
+			else:
+				add_chat("assistant", "파이프라인이 완료되었습니다.")
+
 	except Exception as e:
 		st.session_state.pipeline_status = "error"
 		st.session_state.interrupt_data = str(e)
+		add_chat(
+			"assistant", 
+			f"(Exception) 오류가 발생했습니다.\n\n{str(e)}"
+		)
 
 
 # ----- ----- -----
@@ -105,11 +179,22 @@ with st.sidebar:
 			["instagram", "linkedin", "threads"],
 			key="selected_platform",
 		)
+	else:
+		selected_platform = st.selectbox(
+			"타겟 플랫폼을 선택하세요",
+			["blog"],
+			key="selected_platform",
+		)
 	selected_tone = st.selectbox(
 		"글의 톤을 선택하세요", 
 		["technical", "casual", "professional"], 
 		key="selected_tone",
 	)
+
+	# check
+	# print("type :", selected_type)
+	# print("platform :", "" if selected_platform == "blog" else selected_platform)
+	# print("tone :", selected_tone) 
 
 
 	# st.caption("Google sheets에서 pending item을 찾아서 처리합니다.")
@@ -131,62 +216,22 @@ with st.sidebar:
 # ----- ----- -----
 # main
 # ----- ----- -----
-st.header("콘텐츠 확인")
-if st.session_state.pipeline_status == "waiting" and st.session_state.interrupt_data:
-	data = st.session_state.interrupt_data
-	interrupt_type = data.get("type", "") if isinstance(data, dict) else ""
-	print('check : ', interrupt_type)
 
-	# ── 교정 결과 확인 ──
-	if interrupt_type == "blog_review":
-		st.subheader("교정 결과 확인")
+# ── 채팅 이력 표시 ──
+for msg in st.session_state.chat_history:
+	with st.chat_message(msg["role"]):
 
-		auto_review = data.get("auto_review", {})
-		if auto_review:
-			col1, col2 = st.columns(2)
-			with col1:
-				st.metric("자동 평가 점수", f"{auto_review.get('score', 0)} / 10")
-			with col2:
-				st.info(auto_review.get("feedback", ""))
+		# card news
+		if msg.get("type") == "cards":
+			st.markdown("**카드뉴스가 생성되었습니다.**")
+			cards = msg["content"]
 
-			st.text_area(
-				"교정된 글",
-				value=data.get("proofread_text", ""),
-				height=300,
-				disabled=True,
-			)
-
-			col1, col2 = st.columns([1, 3])
-			with col1:
-				if st.button("승인", type="primary", use_container_width=True):
-					with st.spinner("진행 중..."):
-						resume_pipeline("approve")
-						st.rerun()
-
-			with col2:
-				feedback = st.text_input(
-					"수정 피드백",
-					placeholder="두 번째 문단을 좀 더 부드럽게 해주세요",
-				)
-				if st.button("피드백 보내기") and feedback:
-					with st.spinner("재교정 중..."):
-						resume_pipeline(feedback)
-						st.rerun()
-
-	# ── 카드뉴스 확인 ──
-	elif interrupt_type == "cards_review":
-		st.subheader("카드뉴스 확인")
-
-		cards = data.get("cards", [])
-		if cards:
 			cols = st.columns(min(len(cards), 3))
 			for i, card in enumerate(cards):
 				with cols[i % 3]:
 					type_colors = {
-						"hook": "🟣",
-						"content": "🔵",
-						"summary": "🟢",
-						"cta": "🟠",
+						"hook": "🟣", "content": "🔵",
+						"summary": "🟢", "cta": "🟠",
 					}
 					icon = type_colors.get(card.get("type", ""), "⚪")
 
@@ -194,40 +239,85 @@ if st.session_state.pipeline_status == "waiting" and st.session_state.interrupt_
 					st.markdown(f"### {card.get('title', '')}")
 					st.write(card.get("body", ""))
 					st.caption(f"강조: {card.get('highlight', '')}")
-					st.divider()
+		
+		# images
+		elif msg.get("type") == "images":
+			st.markdown("**카드뉴스가 완성되었습니다.**")
+			paths = msg["content"]
 
-			col1, col2 = st.columns([1, 3])
+			cols = st.columns(min(len(paths), 3))
+			for i, path in enumerate(paths):
+				filepath = Path(path)
+				if filepath.exists():
+					with cols[i % 3]:
+						st.image(str(filepath), caption=filepath.name)
+
+		# text
+		else:
+			st.markdown(msg["content"])
+
+
+if st.session_state.pipeline_status == "waiting" and st.session_state.interrupt_data:
+	data = st.session_state.interrupt_data
+	interrupt_type = data.get("type", "") if isinstance(data, dict) else ""
+	print('check : ', interrupt_type)
+
+	# ── 교정 결과 확인 ──
+	if interrupt_type == "blog_review":
+		auto_review = data.get("auto_review", {})
+		if auto_review:
+			col1, col2 = st.columns(2)
 			with col1:
-				if st.button("승인", type="primary", use_container_width=True, key="cards_approve"):
-					with st.spinner("렌더링 중..."):
-						resume_pipeline("approve")
-					st.rerun()
-
+				st.metric("자동 평가 점수", f"{auto_review.get('review_score', 0)} / 10")
 			with col2:
-				feedback = st.text_input(
-					"수정 피드백",
-					placeholder="카드 2번 내용을 좀 더 간결하게",
-					key="cards_feedback",
-				)
-				if st.button("피드백 보내기", key="cards_fb_btn") and feedback:
-					with st.spinner("카드 재생성 중..."):
-						resume_pipeline(feedback)
-					st.rerun()
+				st.info(auto_review.get("review_feedback", ""))
+
+		if st.button("승인", type="primary"):
+			add_chat("human", "승인")
+			with st.spinner("진행 중..."):
+				resume_pipeline("approve")
+			st.rerun()
+
+		st.caption("수정이 필요하면 하단 채팅창에 피드백을 입력하세요.")
+
+	# ── 카드뉴스 확인 ──
+	elif interrupt_type == "cards_review":
+		cards = data.get("cards", [])
+		if cards:
+	#		cols = st.columns(min(len(cards), 3))
+	#		for i, card in enumerate(cards):
+	#			with cols[i % 3]:
+	#				type_colors = {
+	#					"hook": "🟣",
+	#					"content": "🔵",
+	#					"summary": "🟢",
+	#					"cta": "🟠",
+	#				}
+	#				icon = type_colors.get(card.get("type", ""), "⚪")
+	#
+	#				st.markdown(f"**{icon} 카드 {card.get('card_number', i+1)}** ({card.get('type', '')})")
+	#				st.markdown(f"### {card.get('title', '')}")
+	#				st.write(card.get("body", ""))
+	#				st.caption(f"강조: {card.get('highlight', '')}")
+	#				st.divider()
+
+			if st.button("승인", type="primary", key="cards_approve"):
+				add_chat("human", "승인")
+				with st.spinner("렌더링 중..."):
+					resume_pipeline("approve")
+				st.rerun()
+
+			st.caption("수정이 필요하면 하단 채팅창에 피드백을 입력하세요.")
 
 
 # ══════════════════════════════════════
 #  완료 후: 결과 + 다운로드
 # ══════════════════════════════════════
 	elif st.session_state.pipeline_status == "done" and st.session_state.thread_id:
-		st.subheader("처리 완료")
-		
 		state = app.get_state(get_config())
 		values = state.values
 
-		st.success(f"Thread: {st.session_state.thread_id}")
-		st.write(f"콘텐츠 타입: **{values.get('content_type', '-')}**")
-
-    # 교정 결과
+		# 교정 결과
 		proofread = values.get("proofread_text", "")
 		if proofread:
 			with st.expander("교정된 글 보기"):
@@ -241,6 +331,9 @@ if st.session_state.pipeline_status == "waiting" and st.session_state.interrupt_
 			cols = st.columns(min(len(output_paths), 3))
 			for i, path in enumerate(output_paths):
 				filepath = Path(path)
+				print(f"[완료] {filepath} 존재 여부: {filepath.exists()}")
+				print(f"[완료] 절대경로: {filepath.resolve()}")
+
 				if filepath.exists():
 					with cols[i % 3]:
 						st.image(str(filepath), caption=filepath.name)
@@ -254,38 +347,28 @@ if st.session_state.pipeline_status == "waiting" and st.session_state.interrupt_
 								use_container_width=True,
 								key=f"download_{i}",
 							)
+				else:
+					with cols[i % 3]:
+						st.warning(f"파일을 찾을 수 없습니다 : {path}")
+		else:
+			st.warning(f"결과물을 찾을 수 없습니다 : {output_paths}")
 
 
 
 # ----- ----- -----
 # bottom
 # ----- ----- -----
-draft = st.chat_input("학습한 내용을 입력하세요.")
+draft = st.chat_input("학습한 내용의 초안을 입력하세요.")
 if draft:
-	selected_type = st.session_state.selected_type
-	selected_platform = "blog" if selected_type != "blog" else st.session_state.selected_platform
-	selected_tone = st.session_state.selected_tone
-
-	with st.chat_message("human"):
-		st.write(f"타겟 플랫폼 : {selected_type}")
-		st.write(f"초안 : {draft}")
-
-	st.session_state.thread_id = f"ui-{int(time.time())}"
-	config = get_config()
-	app.invoke({
-    "original_text": draft,
-    "type": selected_type,
-    "platform": selected_platform,
-    "tone": selected_tone,
-    "title": "UI 입력",
-    "row_id": st.session_state.thread_id,
-	}, config)
-
-	next_node, interrupt_data = extract_interrupt_data()
-	if next_node:
-		st.session_state.pipeline_status = "waiting"
-		st.session_state.interrupt_data = interrupt_data
+	# interrupt 대기 중 → 피드백으로 처리
+	if st.session_state.pipeline_status == "waiting":
+		add_chat("human", draft)
+		with st.spinner("피드백 반영 중..."):
+			resume_pipeline(draft)
+		st.rerun()
+ 
+	# 대기 중이 아님 → 새 파이프라인 시작 (직접 입력)
 	else:
-		st.session_state.pipeline_status = "done"
-
-	st.rerun()
+		with st.spinner("파이프라인 실행 중..."):
+			run_pipeline(draft)
+		st.rerun()

@@ -48,7 +48,7 @@ def render_to_jpg(state: State):
 	row_id = state.get("row_id", "unknown")
 	size = CARD_SIZES.get(platform, DEFAULT_CARD_SIZE)
 
-	output_dir = Path(OUTPUT_DIR) / row_id
+	output_dir = Path(OUTPUT_DIR).resolve() / row_id
 	output_dir.mkdir(parents=True, exist_ok=True)
 	template = load_template()
 	output_paths = []
@@ -66,7 +66,7 @@ def render_to_jpg(state: State):
 			html = render_card_html(template, card, platform, len(cards))
 			page.set_content(html, wait_until="networkidle")
 			filename = f"card_{card.get('card_number', 0):02d}.jpg"
-			filepath = str(output_dir / filename)
+			filepath = str((output_dir / filename).resolve())
 
 			page.screenshot(
 				path=filepath,

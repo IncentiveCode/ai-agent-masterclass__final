@@ -33,6 +33,7 @@ def review_blog(state: State) -> Command:
 			}
 		)
 
+
 def review_cards(state: State) -> Command:
 	"""
 	교정된 카드뉴스 내용을 사용자가 직접 확인한다.

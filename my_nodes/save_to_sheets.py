@@ -8,6 +8,10 @@ def save_to_sheets(state: State):
 	처리 결과를 google sheets 에 저장한다.
 	"""
 
+	if state.get("chat_input") == True:
+		print(f"[save_to_sheets] sheet 저장 없이 완료 (status: done)")
+		return {}
+
 	sheet = get_sheets_client()
 
 	row_id = state.get("row_id", "")

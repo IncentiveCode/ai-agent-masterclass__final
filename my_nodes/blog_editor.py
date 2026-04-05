@@ -29,6 +29,13 @@ blog_editor_prompt = """당신은 기술 블로그 전문 에디터입니다.
 	- SEO 관점에서 글의 배치 수정
 
 ## 톤 가이드: {tone}
+아래 톤에 맞게 문체를 반드시 변환하세요:
+- technical: 정확한 기술 용어 사용, 객관적 서술, ~합니다 체
+- casual: 친근한 대화체, ~해요 체, 독자에게 말을 거는 느낌
+- professional: 비즈니스 톤, 간결하고 신뢰감 있는 서술
+
+중요: 원본과 톤이 다르면, 원본의 의미는 유지하되 문체는 반드시 변환하세요.
+원본과 동일한 글을 반환하지 마세요.
 
 ## 출력 형식
 교정된 전체 글을 반환하세요. 
@@ -48,6 +55,7 @@ def call_llm(state: State):
 	response = llm_with_tools.invoke(state["messages"])
 	return {"messages": [response]}
 
+
 def should_continue(state: State):
 	"""
 	LLM 응답에 tool_calls가 있으면 도구 실행, 없으면 종료
@@ -57,6 +65,7 @@ def should_continue(state: State):
 	if getattr(last_message, "tool_calls", None):
 		return "tools"
 	return END
+
 
 def build_blog_agent():
 	"""
@@ -83,6 +92,9 @@ def blog_editor(state: State):
 	feedback = state.get("feedback", "")
 	original_text = state.get("original_text", "")
 
+	print(f"[blog_editor] tone: {tone}")
+	print(f"[blog_editor] original_text: {original_text[:100]}")
+
 	prompt = blog_editor_prompt.format(
 		tone=tone,
 		feedback=f"사용자가 이전 교정에 대해 다음과 같이 요청했습니다: {feedback}"
@@ -104,9 +116,12 @@ def blog_editor(state: State):
 		if getattr(msg, "type", "") == "ai" and msg.content:
 			final_text = msg.content
 			break;
+
+	print(f"[blog_editor] proofread_text: {final_text[:100]}")
+	print(f"[blog_editor] 동일 여부: {original_text.strip() == final_text.strip()}")
 	
 	return {
-		"proofread_text": final_text or original_text,
+		"proofread_text": final_text, # or original_text,
 		"feedback": "",
     "messages": response["messages"],
   }

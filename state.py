@@ -27,3 +27,6 @@ class State(MessagesState):
 
 	# output
 	output_paths: list[str]
+
+	# streamlit chat_input 사용 여부
+	chat_input: bool

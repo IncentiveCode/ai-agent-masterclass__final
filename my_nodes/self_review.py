@@ -39,6 +39,10 @@ review_prompt = """당신은 콘텐츠 품질 검수 전문가입니다.
 
 
 def self_review(state: State):
+	print(f"[self_review] 실행됨")
+	print(f"[self_review] proofread_text 길이: {len(state.get('proofread_text', ''))}")
+	print(f"[self_review] retry_count: {state.get('retry_count', 0)}")
+
 	tone = state.get("tone", "")
 	original = state.get("original_text", "")
 	proofread = state.get("proofread_text", "")
@@ -56,6 +60,10 @@ def self_review(state: State):
 		content = content.removeprefix("```json").removesuffix("```").strip()
 		result = json.loads(content)
 
+		score = int(result.get("average", 0))
+		feedback = result.get("feedback", "")
+		print(f"[self_review] 점수: {score}, 피드백: {feedback}")
+
 		return {
 			"review_score": int(result.get("average", 0)),
 			"review_feedback": result.get("feedback", ""),
@@ -67,4 +75,5 @@ def self_review(state: State):
 		return {
 			"review_score": 7,  # 파싱 실패 시 통과 처리
 			"review_feedback": "자동 평가에 실패했습니다. 수동 확인이 필요합니다.",
+			"retry_count": state.get("retry_count", 0) + 1,
 		}

@@ -11,7 +11,7 @@ def run_pipeline():
 
 	# ── 1) 첫 실행: 시트에서 읽기 → 에디터 → self_review → interrupt에서 멈춤 ──
 	print("\n[1] 파이프라인 시작...")
-	result = app.invoke({"original_text": ""}, config)
+	result = app.invoke({"original_text": "", "chat_input": False,}, config)
 	# original_text는 빈 값 — fetch_from_sheets에서 시트 데이터로 채워짐
 
 	# interrupt에서 멈추면 현재 상태를 확인할 수 있음
