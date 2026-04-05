@@ -1,3 +1,6 @@
+import os
+os.system("playwright install")
+
 import streamlit as st
 from streamlit_extras.bottom_container import bottom
 import json
@@ -215,7 +218,6 @@ with st.sidebar:
 
 # ----- ----- -----
 # main
-# ----- ----- -----
 
 # ── 채팅 이력 표시 ──
 for msg in st.session_state.chat_history:
