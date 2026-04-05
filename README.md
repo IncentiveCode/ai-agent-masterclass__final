@@ -30,3 +30,13 @@
 ## 그래프 구조
 
 ![그래프 구조](content-pilot.jpg)
+
+## How to use?
+
+- CLI
+  - 실행 : python run.py
+  - google sheets 연동이 되어 있는 경우, sheets에서 'pending' 상태인 row 하나를 읽고 프로세스를 진행합니다.
+- streamlit cloud  
+  - 좌측 메뉴에서 원하는 형태, 타겟을 선택합니다.
+  - 하단 input 에 원하는 학습 기록을 적습니다.
+  - 지시에 따라 추가 피드백을 제공하거나, 작업을 마무리합니다.
